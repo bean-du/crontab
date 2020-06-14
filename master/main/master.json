@@ -1,0 +1,9 @@
+{
+  "说明0":"超时单位为毫秒",
+  "port": 8070,
+  "read_timeout": 3000,
+  "write_timeout": 3000,
+  "说明1": "etcd配置",
+  "endpoints": ["127.0.0.1:2379"],
+  "dial_timeout": 5000
+}

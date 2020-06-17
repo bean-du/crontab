@@ -1,4 +1,4 @@
-package master
+package worker
 
 import (
 	"encoding/json"
@@ -7,15 +7,9 @@ import (
 )
 
 type Configure struct {
-	// http API 接口配置
-	Port         int `json:"port"`
-	ReadTimeout  int `json:"read_timeout"`
-	WriteTimeout int `json:"write_timeout"`
 	// etcd 配置
 	Endpoints []string `json:"endpoints"`
 	DialTimeout int `json:"dial_timeout"`
-	// web静态页面目录配置
-	WebRoot string `json:"web_root"`
 }
 
 var (

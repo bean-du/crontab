@@ -1,7 +1,7 @@
 package master
 
 import (
-	"crontab/master/common"
+	"crontab/common"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -23,9 +23,9 @@ var (
 func handleSave(w http.ResponseWriter, r *http.Request) {
 	// 任务保存在etcd
 	var (
-		job common.Job
-		oldJob *common.Job
-		err error
+		job     common.Job
+		oldJob  *common.Job
+		err     error
 		resData []byte
 		postJob string
 	)
@@ -34,7 +34,6 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 		goto ERR
 	}
 	postJob = r.PostForm.Get("job")
-	fmt.Println(postJob)
 	if err = json.Unmarshal([]byte(postJob), &job); err != nil {
 		goto ERR
 	}
@@ -52,7 +51,72 @@ ERR:
 }
 
 func handleDelete(w http.ResponseWriter, r *http.Request)  {
+	var (
+		err error
+		name string
+		job *common.Job
+		res []byte
+	)
+	if err = r.ParseForm(); err != nil {
+		goto ERR
+	}
+	name = r.PostForm.Get("name")
+	// Do delete a task
+	if job, err = G_JobManager.DeleteJob(name); err != nil {
+		goto ERR
+	}
+	if res, err = common.BuildResponse(0,"success",job); err == nil {
+		w.Write(res)
+	}
+	return
+ERR:
+	if res, err = common.BuildResponse(-1,err.Error(),nil); err == nil {
+		w.Write(res)
+	}
+}
 
+func handleList(w http.ResponseWriter, r * http.Request)  {
+	var (
+		jobs []*common.Job
+		res []byte
+		err error
+	)
+	jobs, err = G_JobManager.ListJobs()
+	if err != nil  {
+		goto ERR
+	}
+	if res,err = common.BuildResponse(0, "success",jobs); err == nil  {
+		w.Write(res)
+	}
+	return
+ERR:
+	if res, err = common.BuildResponse(-1,err.Error(), nil); err == nil {
+		w.Write(res)
+	}
+}
+
+func handleKill(w http.ResponseWriter, r *http.Request)  {
+	var (
+		err error
+		name string
+		res []byte
+	)
+	if err = r.ParseForm(); err != nil {
+		goto ERR
+	}
+	name = r.PostForm.Get("name")
+
+	if err = G_JobManager.SaveKillJob(name);err != nil {
+		goto ERR
+	}
+	if res, err = common.BuildResponse(0,"success",nil); err == nil {
+		w.Write(res)
+	}
+	return
+ERR:
+	if res, err = common.BuildResponse(0, err.Error(),nil); err == nil {
+		w.Write(res)
+	}
 }
 // 初始化一个http server单例
 func InitApiServer() (err error) {
@@ -62,8 +126,16 @@ func InitApiServer() (err error) {
 		httpServer *http.Server
 	)
 	mux = http.NewServeMux()
+
+	// 注册路由
 	mux.HandleFunc("/cron/save", handleSave)
 	mux.HandleFunc("/cron/delete", handleDelete)
+	mux.HandleFunc("/cron/list", handleList)
+	mux.HandleFunc("/cron/kill", handleKill)
+	// 创建文件服务器
+	dir := http.Dir(G_Config.WebRoot)
+	staticHandler := http.FileServer(dir)
+	mux.Handle("/", http.StripPrefix("/",staticHandler))
 	// Get configure
 	conf := GetConf()
 	// start watch tcp port

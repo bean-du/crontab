@@ -5,5 +5,7 @@
   "write_timeout": 3000,
   "说明1": "etcd配置",
   "endpoints": ["127.0.0.1:2379"],
-  "dial_timeout": 5000
+  "dial_timeout": 5000,
+  "说明2": "web 静态页面目录配置，绝对路径",
+  "web_root": "./webroot"
 }

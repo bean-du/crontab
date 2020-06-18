@@ -77,6 +77,7 @@ func (jm *JobManager) DeleteJob(name string) (oldJob *common.Job, err error) {
 	if DelResp, err = jm.Kv.Delete(context.TODO(), jobKey, clientv3.WithPrevKV()); err != nil {
 		return
 	}
+
 	if len(DelResp.PrevKvs) != 0 {
 		if err = json.Unmarshal(DelResp.PrevKvs[0].Value, &ojob); err != nil {
 			err = nil

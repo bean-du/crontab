@@ -28,7 +28,6 @@ func main() {
 	InitCPU()
 	// 初始化命令行参数
 	InitArgs()
-
 	// 初始化配置文件
 	if err = worker.InitConfig(ConfigFile); err != nil {
 		goto ERR
@@ -37,7 +36,6 @@ func main() {
 	if err = worker.InitScheduler(); err != nil {
 		goto ERR
 	}
-
 	// 启动执行器
 	if err = worker.InitExecute(); err != nil  {
 		goto ERR
@@ -46,7 +44,10 @@ func main() {
 	if err = worker.InitJobManager(); err != nil {
 		goto ERR
 	}
-
+	// 启动日志协程
+	if err = worker.InitLogSink(); err != nil {
+		goto  ERR
+	}
 	for {
 		time.Sleep(time.Second * 2)
 	}

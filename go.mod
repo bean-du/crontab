@@ -14,6 +14,7 @@ require (
 	github.com/gorhill/cronexpr v0.0.0-20180427100037-88b0669f7d75
 	go.etcd.io/bbolt v1.3.4 // indirect
 	go.etcd.io/etcd v3.3.22+incompatible
+	go.mongodb.org/mongo-driver v1.3.4
 	go.uber.org/zap v1.15.0 // indirect
 	//google.golang.org/grpc v1.29.1 // indirect
 	google.golang.org/grpc v1.26.0

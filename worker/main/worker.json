@@ -1,5 +1,14 @@
 {
   "说明1": "etcd配置",
   "endpoints": ["127.0.0.1:2379"],
-  "dial_timeout": 5000
+  "dial_timeout": 5000,
+
+  "说明2": "MongoDB配置",
+  "host": "localhost",
+  "port": 27018,
+  "db": "cron",
+  "user_name": "admin",
+  "pwd": "admin",
+  "job_log_batch_size": 100,
+  "log_commit_timeout": 1000
 }

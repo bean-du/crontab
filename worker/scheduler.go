@@ -7,20 +7,21 @@ import (
 )
 
 type Scheduler struct {
-	jobEventChan chan *common.Event // 任务事件队列
-	jobPlanTable map[string]*common.JobSchedulePlan
+	jobEventChan      chan *common.Event // 任务事件队列
+	jobPlanTable      map[string]*common.JobSchedulePlan
 	jobExecutingTable map[string]*common.JobExecuteInfo
-	jobResultChan chan *common.JobExecuteResult
+	jobResultChan     chan *common.JobExecuteResult
 }
 
 var (
 	G_Scheduler *Scheduler
 )
+
 // 处理任务事件在内存中的同步
-func (s *Scheduler)handleJobEvent(jobEvent *common.Event)  {
+func (s *Scheduler) handleJobEvent(jobEvent *common.Event) {
 	var (
 		jobSchedulerPlan *common.JobSchedulePlan
-		err error
+		err              error
 	)
 	switch jobEvent.EventType {
 	case common.JOB_EVENT_SAVE:
@@ -30,30 +31,31 @@ func (s *Scheduler)handleJobEvent(jobEvent *common.Event)  {
 		//同步到本地内存，与 etcd 同步
 		s.jobPlanTable[jobEvent.Job.Name] = jobSchedulerPlan
 	case common.JOB_EVENT_DELETE:
-		if _,ok := s.jobPlanTable[jobEvent.Job.Name]; ok {
-			delete(s.jobPlanTable,jobEvent.Job.Name)
+		if _, ok := s.jobPlanTable[jobEvent.Job.Name]; ok {
+			delete(s.jobPlanTable, jobEvent.Job.Name)
 		}
-	case common.JOB_EVENT_KILL:// 强杀任务事件
-	// 取消command执行
-		if info, executing := s.jobExecutingTable[jobEvent.Job.Name];executing {
+	case common.JOB_EVENT_KILL: // 强杀任务事件
+		// 取消command执行
+		if info, executing := s.jobExecutingTable[jobEvent.Job.Name]; executing {
 			info.CancelFunc()
 		}
 	}
 }
+
 // 重新计算任务调度状态
-func (s *Scheduler)TryScheduler() (d time.Duration)  {
+func (s *Scheduler) TryScheduler() (d time.Duration) {
 
 	if len(s.jobPlanTable) == 0 {
 		time.Sleep(1 * time.Second)
 		return
 	}
 	var (
-		jobPlan *common.JobSchedulePlan
+		jobPlan  *common.JobSchedulePlan
 		nearTime *time.Time
 	)
 	// 1. 遍历所有任务
 	now := time.Now()
-	for _,jobPlan = range s.jobPlanTable {
+	for _, jobPlan = range s.jobPlanTable {
 		// 如果它早与当前时间，或者等于当前时间
 		if jobPlan.NextTime.Before(now) || jobPlan.NextTime.Equal(now) {
 			// 尝试执行任务
@@ -63,7 +65,7 @@ func (s *Scheduler)TryScheduler() (d time.Duration)  {
 		}
 
 		// 统计最近一个要过期的任务事件
-		if nearTime == nil || jobPlan.NextTime.Before(*nearTime){
+		if nearTime == nil || jobPlan.NextTime.Before(*nearTime) {
 			nearTime = &jobPlan.NextTime
 		}
 
@@ -73,10 +75,11 @@ func (s *Scheduler)TryScheduler() (d time.Duration)  {
 	d = (*nearTime).Sub(now)
 	return
 }
+
 // 调度协程
-func (s *Scheduler)SchedulerLoop()  {
+func (s *Scheduler) SchedulerLoop() {
 	var (
-		jobEvent *common.Event
+		jobEvent      *common.Event
 		scheduleAfter time.Duration
 	)
 	// 初始化一次 计算睡眠时间
@@ -100,7 +103,7 @@ func (s *Scheduler)SchedulerLoop()  {
 }
 
 // 推送任务变化事件
-func (s *Scheduler)PushJobEvent(jobEvent *common.Event)  {
+func (s *Scheduler) PushJobEvent(jobEvent *common.Event) {
 	s.jobEventChan <- jobEvent
 }
 
@@ -119,23 +122,41 @@ func (s *Scheduler) TryStartJbo(jobPlan *common.JobSchedulePlan) {
 	//fmt.Printf("执行命令:%s , 计划执行时间：%v， 真实执行时间： %v \n", jobPlan.Job.Name, info.PlanTime, info.RealTime)
 }
 
-func (s *Scheduler)PushJobResult(res *common.JobExecuteResult)  {
+func (s *Scheduler) PushJobResult(res *common.JobExecuteResult) {
 	s.jobResultChan <- res
 }
 
 func (s *Scheduler) handleJobResult(result *common.JobExecuteResult) {
-	if _, ok := s.jobExecutingTable[result.ExecuteInfo.Job.Name]; ok {
-		delete(s.jobExecutingTable,result.ExecuteInfo.Job.Name)
+	delete(s.jobExecutingTable, result.ExecuteInfo.Job.Name)
+	// 生产执行日志
+	if result.Err != common.ErrLockOccupied {
+		jobLog := &common.JobLog{
+			JobName:      result.ExecuteInfo.Job.Name,
+			Command:      result.ExecuteInfo.Job.Command,
+			Output:       string(result.Output),
+			PlanTime:     result.ExecuteInfo.PlanTime.UnixNano() / 1000 / 1000,
+			ScheduleTime: result.ExecuteInfo.RealTime.UnixNano() / 1000 / 1000,
+			StartTime:    result.StartTime.UnixNano() / 1000 / 1000,
+			EndTime:      result.EndTime.UnixNano() / 1000 / 1000,
+		}
+		if result.Err != nil {
+			jobLog.Err = result.Err.Error()
+		}else {
+			jobLog.Err = ""
+		}
+		// TODO: 将日志存储到MongoDB
+		G_LogSink.AppendLog(jobLog)
 	}
-	fmt.Printf("[%s]任务执行完成! , 任务执行结果：%s，执行时间： %v，错误信息： %v \n", result.ExecuteInfo.Job.Name,result.Output,result.EndTime.Sub(result.StartTime),result.Err)
+	fmt.Printf("[%s]任务执行完成! , 任务执行结果：%s，执行时间： %v，错误信息： %v \n", result.ExecuteInfo.Job.Name, result.Output, result.EndTime.Sub(result.StartTime), result.Err)
 }
+
 // 初始化调度器
 func InitScheduler() (err error) {
 	G_Scheduler = &Scheduler{
-		jobEventChan: make(chan *common.Event, 1000),
-		jobPlanTable: make(map[string]*common.JobSchedulePlan),
+		jobEventChan:      make(chan *common.Event, 1000),
+		jobPlanTable:      make(map[string]*common.JobSchedulePlan),
 		jobExecutingTable: make(map[string]*common.JobExecuteInfo),
-		jobResultChan: make(chan *common.JobExecuteResult, 1000),
+		jobResultChan:     make(chan *common.JobExecuteResult, 1000),
 	}
 	//启动调度协程
 	go G_Scheduler.SchedulerLoop()

@@ -47,6 +47,21 @@ type Event struct {
 	EventType int `json:"event_type"`
 	Job *Job `json:"job"`
 }
+// 任务执行日志
+type JobLog struct {
+	JobName string `bson:"job_name"` // 任务名称
+	Command string `bson:"command"` // shell 命令
+	Err string `bson:"err"`	// 错误信息
+	Output string `bson:"output"` // 任务命令输出
+	PlanTime int64 `bson:"plan_time"` // 计划执行时间
+	ScheduleTime int64 `bson:"schedule_time"` // 实际调度时间
+	StartTime int64 `bson:"start_time"` // 任务开始时间
+	EndTime int64 `bson:"end_time"` // 任务结束时间
+}
+// 日志批次
+type LogBatch struct {
+	Logs []interface{}
+}
 
 func BuildExecuteInfo(jobPlan *JobSchedulePlan) (jbExecuteInfo *JobExecuteInfo) {
 
